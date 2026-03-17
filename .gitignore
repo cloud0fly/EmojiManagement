@@ -1,0 +1,40 @@
+# --- 系统与编辑器 ---
+.DS_Store
+.idea
+.vscode/
+!.vscode/extensions.json
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# --- Node.js (前端) ---
+node_modules
+dist
+dist-ssr
+*.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# --- Rust / Tauri (后端核心) ---
+# 必须忽略：Rust 编译产生的所有二进制文件（通常很大）
+/src-tauri/target
+
+# 忽略 Tauri 编译生成的各种安装包 (msi, nsis, deb等)
+/src-tauri/gen
+/src-tauri/bundle
+
+# 忽略 Rust 锁文件（如果是个人开发且不锁定版本可忽略，通常建议保留 Cargo.lock）
+# src-tauri/Cargo.lock
+
+# --- 环境配置文件 ---
+.env
+.env*.local
+
+# --- 临时文件与日志 ---
+logs
+*.log
+/src-tauri/crashdump
