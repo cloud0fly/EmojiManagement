@@ -1,0 +1,117 @@
+<template>
+  <div class="main-view">
+    <div
+      v-if="memes.length === 0"
+      class="flex flex-col items-center justify-center py-20 border-2 border-dashed border-gray-200 rounded-3xl bg-white/50 backdrop-blur-sm shadow-inner"
+    >
+      <div
+        class="text-6xl mb-6 filter drop-shadow-lg grayscale hover:grayscale-0 transition-all cursor-default"
+      >
+        🖼️
+      </div>
+      <p class="text-gray-500 font-medium text-lg">当前分组空空如也</p>
+      <p class="text-gray-400 text-sm mt-1">点击上方“导入”或将文件拖入此区域</p>
+    </div>
+
+    <draggable
+      v-model="memes"
+      item-key="id"
+      class="flex flex-wrap gap-6"
+      ghost-class="ghost-item"
+      @end="handleSortEnd"
+      :force-fallback="true"
+      :filter="'.no-drag'"
+      :prevent-on-filter="false"
+    >
+      <template #item="{ element }">
+        <div
+          class="w-[120px] aspect-square bg-white rounded-2xl shadow-sm cursor-grab"
+        >
+          <MemeCard :meme="element" @copy-success="handleCopySuccess" />
+        </div>
+      </template>
+    </draggable>
+
+    <transition name="fade">
+      <div
+        v-if="toast.show"
+        class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-black/80 text-white px-5 py-2.5 rounded-xl shadow-lg backdrop-blur-md text-sm font-medium animate-fade-in"
+      >
+        {{ toast.message }}
+      </div>
+    </transition>
+  </div>
+</template>
+
+<script setup>
+// MainView.vue
+import { ref, onMounted, watch } from "vue";
+import { invoke, convertFileSrc } from "@tauri-apps/api/core";
+import MemeCard from "../components/MemeCard.vue";
+import draggable from "vuedraggable";
+import { message } from "@tauri-apps/plugin-dialog";
+
+const props = defineProps(["categoryId"]);
+const memes = ref([]);
+const toast = ref({
+  show: false,
+  message: "",
+});
+const mainViewRef = ref(null);
+
+const triggerRefresh = () => {
+  mainViewRef.value?.loadMemes();
+};
+
+const handleSortEnd = async () => {
+  console.log("drag start");
+  const sortedIds = memes.value.map((m) => m.id);
+  await invoke("update_memes_order", { ids: sortedIds });
+};
+
+let timer = null;
+const handleCopySuccess = () => {
+  toast.value.message = "已复制到剪贴板";
+  toast.value.show = true;
+
+  if (timer) clearTimeout(timer);
+  setTimeout(() => {
+    toast.value.show = false;
+  }, 1500);
+};
+
+// 加载数据
+const loadMemes = async () => {
+  try {
+    memes.value = await invoke("get_memes_by_category", {
+      catId: props.categoryId || 1,
+    });
+  } catch (err) {
+    console.error("加载失败:", err);
+  }
+};
+
+// 监听分组切换
+watch(() => props.categoryId, loadMemes);
+onMounted(loadMemes);
+</script>
+
+<style scoped>
+/* 拖拽时的占位符样式：让用户知道图片会落到哪里 */
+.ghost-item {
+  opacity: 0.5;
+  background: #eff6ff; /* blue-50 */
+  border: 2px dashed #93c5fd; /* blue-300 */
+  border-radius: 1rem;
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: all 0.25s ease;
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+  transform: translate(-50%, 20px);
+}
+</style>

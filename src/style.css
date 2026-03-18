@@ -1,0 +1,17 @@
+@import "tailwindcss";
+
+/* 之前讨论的桌面端原生优化 */
+:root {
+  user-select: none;
+  -webkit-user-drag: none;
+  background-color: var(--color-window-bg);
+}
+
+::-webkit-scrollbar {
+  width: 5px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 10px;
+}
