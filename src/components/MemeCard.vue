@@ -17,10 +17,10 @@ const copyMeme = async (path) => {
 
 <template>
   <div
-    class="meme-card group relative aspect-square bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden cursor-grab active:cursor-grabbing hover:shadow-md transition-all"
+    class="meme-card group relative aspect-square bg-transparent rounded-xl border-0 cursor-grab active:cursor-grabbing hover:shadow-md transition-all"
   >
     <div
-      class="w-full h-full p-3 flex items-center justify-center bg-gray-50/50"
+      class="w-full h-full p-0 flex items-center justify-center bg-gray-50/50"
     >
       <img
         :src="convertFileSrc(meme.file_path)"

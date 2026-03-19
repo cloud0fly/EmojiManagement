@@ -18,6 +18,7 @@
       item-key="id"
       class="flex flex-wrap gap-6"
       ghost-class="ghost-item"
+      :group="{ name: 'memes', pull: 'clone', put: false }"
       @end="handleSortEnd"
       :force-fallback="true"
       :filter="'.no-drag'"
@@ -57,16 +58,21 @@ const toast = ref({
   show: false,
   message: "",
 });
-const mainViewRef = ref(null);
 
-const triggerRefresh = () => {
-  mainViewRef.value?.loadMemes();
-};
+const handleSortEnd = async (evt) => {
+  if (evt.to !== evt.from) {
+    console.log("图片已被拖向侧边栏");
+    return;
+  }
 
-const handleSortEnd = async () => {
-  console.log("drag start");
+  console.log("正在保存排序");
   const sortedIds = memes.value.map((m) => m.id);
-  await invoke("update_memes_order", { ids: sortedIds });
+  try {
+    await invoke("update_memes_order", { ids: sortedIds });
+  } catch (err) {
+    console.error("更新排序失败:", err);
+    loadMemes();
+  }
 };
 
 let timer = null;
@@ -90,6 +96,8 @@ const loadMemes = async () => {
     console.error("加载失败:", err);
   }
 };
+
+defineExpose({ loadMemes });
 
 // 监听分组切换
 watch(() => props.categoryId, loadMemes);

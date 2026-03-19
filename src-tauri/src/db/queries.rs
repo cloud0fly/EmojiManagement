@@ -32,9 +32,14 @@ pub const UPDATE_MEME_CATEGORY: &str = "
     UPDATE memes SET category_id = ? WHERE id = ?;
 ";
 
+pub const CREATE_CATEGORY: &str = "INSERT INTO categories (name, order_index) VALUES (?, 0)";
+
 pub const INSERT_MEME_IF_NOT_EXISTS: &str = "
-    INSERT OR IGNORE INTO memes (file_path, category_id, is_gif, md5) 
-    VALUES (?, ?, ?, ?);
+    INSERT INTO memes (file_path, category_id, is_gif, md5)
+    SELECT ?1, ?2, ?3, ?4
+    WHERE NOT EXISTS (
+        SELECT 1 FROM memes WHERE md5 = ?4
+    );
 ";
 
 pub const GET_MEMES_BY_CAT: &str = "
@@ -45,3 +50,7 @@ pub const GET_MEMES_BY_CAT: &str = "
 ";
 
 pub const UPDATE_MEME_ORDER: &str = "UPDATE memes SET order_index = ? WHERE id = ?";
+
+pub const UPDATE_CATEGORY_ORDER: &str = "UPDATE categories SET order_index = ? WHERE id = ?";
+
+pub const DELETE_CATEGORY: &str = "DELETE FROM categories WHERE id = ?";
