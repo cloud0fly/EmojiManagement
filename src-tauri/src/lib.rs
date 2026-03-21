@@ -4,14 +4,15 @@ mod db;
 mod models;
 mod utils;
 
-use tauri_plugin_log::Target;
 use commands::category::*;
 use commands::clipboard::*;
 use commands::meme::*;
+use tauri::image::Image;
+use tauri_plugin_log::Target;
 
 use rusqlite::Connection;
-use tauri_plugin_log::TargetKind;
 use std::sync::Mutex;
+use tauri_plugin_log::TargetKind;
 
 use tauri::menu::{Menu, MenuItem};
 use tauri::{
@@ -33,14 +34,13 @@ pub fn run() {
         .plugin(
             tauri_plugin_log::Builder::default()
                 .targets([
-                    Target::new(TargetKind::Stdout),  // 输出到终端
-                    Target::new(TargetKind::LogDir { file_name: None }),  // 输出到文件 (AppData/logs)
-                    Target::new(TargetKind::Webview), // 输出到前端控制台
+                    Target::new(TargetKind::Stdout),
+                    Target::new(TargetKind::LogDir { file_name: None }),
+                    Target::new(TargetKind::Webview),
                 ])
                 .level(log::LevelFilter::Debug) // 设置全局日志级别
                 .build(),
         )
-
         .setup(|app| {
             // database
             let conn = db::init(app.app_handle())?;
@@ -49,9 +49,12 @@ pub fn run() {
             let show = MenuItem::with_id(app, "show", "打开", true, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "退出", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&show, &quit])?;
+            let icon_bytes = include_bytes!("../icons/icon.ico");
+            let icon = Image::from_bytes(icon_bytes)?;
 
             TrayIconBuilder::new()
                 .menu(&menu)
+                .icon(icon)
                 // menu click
                 .on_menu_event(|app, event| match event.id.as_ref() {
                     "show" => {

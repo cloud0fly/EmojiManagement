@@ -32,6 +32,9 @@ importers:
       vue:
         specifier: ^3.5.13
         version: 3.5.30(typescript@5.6.3)
+      vue-virtual-scroller:
+        specifier: 2.0.0-beta.10
+        version: 2.0.0-beta.10(vue@3.5.30(typescript@5.6.3))
       vuedraggable:
         specifier: ^4.1.0
         version: 4.1.0(vue@3.5.30(typescript@5.6.3))
@@ -808,6 +811,9 @@ packages:
     resolution: {integrity: sha512-OBwBN9AL4dqmETlpS2zasx+vTeWclWzkblfZk7KTA5j3jeOONz/tRCnZomUyvNg83wL5Zv9Ss6HMJXAgL8R2Yg==}
     engines: {node: '>=16 || 14 >=14.17'}
 
+  mitt@2.1.0:
+    resolution: {integrity: sha512-ILj2TpLiysu2wkBbWjAmww7TkZb65aiQO+DkVdUTBpBXq+MHYiETENkKFMtsJZX1Lf4pe4QOrTSjIfUwN5lRdg==}
+
   muggle-string@0.4.1:
     resolution: {integrity: sha512-VNTrAak/KhO2i8dqqnqnAHOa3cYBwXEZe9h+D5h/1ZqFSTEFHdM65lR7RoIqq3tBBYavsOXV84NoHXZ0AkPyqQ==}
 
@@ -918,6 +924,11 @@ packages:
     hasBin: true
     peerDependencies:
       typescript: '>=5.0.0'
+
+  vue-virtual-scroller@2.0.0-beta.10:
+    resolution: {integrity: sha512-eubwFXRdiT/5kNYbHKXTkNf3XCmZNSDtpTkWB7TTdOB4LYM14Ylqq/pbW6uXOEbbO/pVXQpxdhtdf2Qj2wZpQA==}
+    peerDependencies:
+      vue: ^3.2.0
 
   vue@3.5.30:
     resolution: {integrity: sha512-hTHLc6VNZyzzEH/l7PFGjpcTvUgiaPK5mdLkbjrTeWSRcEfxFrv56g/XckIYlE9ckuobsdwqd5mk2g1sBkMewg==}
@@ -1496,6 +1507,8 @@ snapshots:
     dependencies:
       brace-expansion: 2.0.2
 
+  mitt@2.1.0: {}
+
   muggle-string@0.4.1: {}
 
   nanoid@3.3.11: {}
@@ -1588,6 +1601,11 @@ snapshots:
       '@volar/typescript': 2.4.15
       '@vue/language-core': 2.2.12(typescript@5.6.3)
       typescript: 5.6.3
+
+  vue-virtual-scroller@2.0.0-beta.10(vue@3.5.30(typescript@5.6.3)):
+    dependencies:
+      mitt: 2.1.0
+      vue: 3.5.30(typescript@5.6.3)
 
   vue@3.5.30(typescript@5.6.3):
     dependencies:
