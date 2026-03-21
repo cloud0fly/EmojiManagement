@@ -3,6 +3,8 @@ import { ref, watch } from "vue";
 import { open } from "@tauri-apps/plugin-dialog";
 import { invoke } from "@tauri-apps/api/core";
 import { loadSettings, updateSetting } from "../stores/settingStore";
+import { getCurrentWindow } from "@tauri-apps/api/window";
+const appWindow = getCurrentWindow();
 
 const modelValue = defineModel();
 const settings = ref(null);
@@ -13,6 +15,15 @@ watch(modelValue, async (isOpen) => {
     settings.value = JSON.parse(JSON.stringify(data));
   }
 });
+
+watch(
+  () => settings.value?.alwaysOnTop,
+  async (newValue) => {
+    if (newValue !== undefined) {
+      await appWindow.setAlwaysOnTop(newValue);
+    }
+  }
+);
 
 const selectPath = async () => {
   const selected = await open({
@@ -140,7 +151,6 @@ const openLogFolder = async () => {
                 >
                   <div
                     v-for="(label, key) in {
-                      autoScan: '启动时自动扫描',
                       alwaysOnTop: '保持窗口置顶',
                     }"
                     :key="key"

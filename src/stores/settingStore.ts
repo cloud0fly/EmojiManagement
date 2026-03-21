@@ -19,9 +19,7 @@ const DEFAULT_SETTINGS: Settings = {
 
 let storeInstance: Store | null = null;
 
-/**
- * 获取或初始化 Store
- */
+// 获取或初始化 Store
 async function getStore() {
   if (!storeInstance) {
     storeInstance = await Store.load("settings.json", {
@@ -32,9 +30,7 @@ async function getStore() {
   return storeInstance;
 }
 
-/**
- * 加载配置
- */
+// 加载配置
 export async function loadSettings(): Promise<Settings> {
   const store = await getStore();
   const allEntries = await store.entries<any>();
@@ -42,9 +38,7 @@ export async function loadSettings(): Promise<Settings> {
   return Object.fromEntries(allEntries) as Settings;
 }
 
-/**
- * 更新单个配置
- */
+// 更新单个配置
 export async function updateSetting<K extends keyof Settings>(
   key: K,
   value: Settings[K],
@@ -53,9 +47,7 @@ export async function updateSetting<K extends keyof Settings>(
   await store.set(key, value);
 }
 
-/**
- * 重置配置
- */
+// 重置配置
 export async function resetSettings() {
   const store = await getStore();
   await store.reset();

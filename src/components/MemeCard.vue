@@ -25,6 +25,7 @@ const copyMeme = async (path) => {
       <img
         :src="convertFileSrc(meme.file_path)"
         class="w-full h-full object-contain p-2"
+        loading="lazy"
       />
     </div>
 
