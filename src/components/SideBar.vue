@@ -1,6 +1,8 @@
 <template>
   <aside
+    v-bind="$attrs"
     :class="[
+      $attrs.class,
       'h-screen flex flex-col bg-white/80 backdrop-blur-xl border-r border-gray-200/50 transition-all duration-300 ease-in-out select-none',
       collapsed ? 'w-18' : 'w-64',
     ]"
@@ -17,48 +19,61 @@
     </div>
 
     <nav class="flex-1 mt-3 px-2 space-y-1 overflow-y-auto custom-scrollbar">
-      <div v-for="cat in categories" :key="cat.id">
-        <draggable
-          :list="[]"
-          :group="{ name: 'memes', put: true, pull: false }"
-          item-key="id"
-          ghost-class="hidden-ghost"
-          @add="(evt) => handleMemeAddedToCategory(evt, cat.id)"
-        >
-          <template #item>
-            <div></div>
-          </template>
-          <template #header>
+
+      <draggable 
+        v-model="categories" 
+        item-key="id"
+        handle=".drag-handle" 
+        ghost-class="drag-ghost"
+        @end="onDragEnd"
+      >
+        <template #item="{ element: cat }">
+          <div
+            @mouseenter="onEnter(cat.id)"
+            @mouseleave="onLeave"
+            @mouseup="onDrop(cat.id)"
+          >
             <div
               @click="$emit('update:currentCategoryId', cat.id)"
-              :class="[
-                'relative group flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-all duration-200',
-                currentCategoryId === cat.id
-                  ? 'bg-blue-600 text-white shadow-md shadow-blue-200'
-                  : 'text-gray-600 hover:bg-gray-100',
-              ]"
+              :class="getItemClass(currentCategoryId, cat.id)"
             >
-              <div
-                v-if="currentCategoryId === cat.id"
-                class="absolute left-0 w-1 h-5 bg-white rounded-r-full"
-              ></div>
-
-              <span
-                class="text-xl filter drop-shadow-sm group-hover:scale-110 transition-transform"
+              <div 
+                v-if="!collapsed && !cat.isEditing"
+                class="drag-handle opacity-0 group-hover:opacity-100 p-1 mr-1 cursor-grab active:cursor-grabbing text-gray-400 hover:text-blue-500 transition-all"
               >
-                {{ currentCategoryId === cat.id ? "📂" : "📁" }}
-              </span>
+                <svg viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
+                  <path d="M7 2a2 2 0 100 4 2 2 0 000-4zM7 8a2 2 0 100 4 2 2 0 000-4zM7 14a2 2 0 100 4 2 2 0 000-4zM13 2a2 2 0 100 4 2 2 0 000-4zM13 8a2 2 0 100 4 2 2 0 000-4zM13 14a2 2 0 100 4 2 2 0 000-4z" />
+                </svg>
+              </div>
 
-              <div
-                v-if="!collapsed"
-                class="flex-1 flex items-center justify-between overflow-hidden"
-              >
-                <span class="text-sm font-medium truncate">{{ cat.name }}</span>
+              <div v-if="currentCategoryId === cat.id" class="absolute left-0 w-1 h-5 bg-white rounded-r-full"></div>
+
+              <span class="text-xl">{{ currentCategoryId === cat.id ? "📂" : "📁" }}</span>
+
+              <div v-if="!collapsed" class="flex-1 overflow-hidden ml-2">
+                <span v-if="!cat.isEditing" class="text-sm truncate block">{{ cat.name }}</span>
+                <input
+                  v-else
+                  v-model="editName"
+                  :ref="(el) => (renameInput = el)"
+                  class="w-full text-sm bg-white/50 border border-blue-400 rounded px-1 outline-none text-gray-800"
+                  @click.stop
+                  @blur="handleRename(cat)"
+                  @keyup.enter="handleRename(cat)"
+                  @keyup.esc="cat.isEditing = false"
+                />
+              </div>
+
+              <div class="ml-auto flex items-center" v-if="!collapsed && !cat.isEditing">
+                <button
+                  class="opacity-0 group-hover:opacity-100 transition text-gray-400 hover:text-gray-700"
+                  @click.stop="toggleMenu(cat.id, $event)"
+                >⋯</button>
               </div>
             </div>
-          </template>
-        </draggable>
-      </div>
+          </div>
+        </template>
+      </draggable>
     </nav>
 
     <div class="p-4 border-t border-gray-100 space-y-2">
@@ -71,46 +86,218 @@
       </button>
     </div>
   </aside>
+
+  <Teleport to="body">
+    <div
+      v-if="activeMenuId !== null"
+      class="fixed w-28 bg-white border border-gray-200 overflow-hidden rounded-lg shadow-lg z-9999"
+      :style="menuStyle"
+      @mouseenter="menuHover = true"
+      @mouseleave="menuHover = false; closeMenu();"
+    >
+      <div class="px-3 py-2 text-sm hover:bg-gray-100 cursor-pointer" @click="renameCategory">重命名</div>
+      <div class="px-3 py-2 text-sm text-red-500 hover:bg-red-50 cursor-pointer" @click="openDeleteModal">删除</div>
+    </div>
+  </Teleport>
+  
+  <Teleport to="body">
+    <div v-if="showDeleteModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-10000">
+      <div class="bg-white rounded-2xl p-6 w-80 shadow-2xl animate-in zoom-in-95 duration-200">
+        <h3 class="text-lg font-bold text-gray-800">确认删除分类？</h3>
+        <p class="text-sm text-gray-500 mt-2">分类内的所有表情包将自动移至 <span class="font-medium text-blue-600">默认分类</span>。</p>
+        <div class="flex justify-end gap-3 mt-6">
+          <button @click="showDeleteModal = false" class="px-4 py-2 text-sm font-medium text-gray-500 hover:bg-gray-100 rounded-xl">取消</button>
+          <button @click="confirmDelete" :disabled="isDeleting" class="px-4 py-2 text-sm font-medium bg-red-500 text-white hover:bg-red-600 rounded-xl flex items-center gap-2">
+            <span v-if="isDeleting" class="animate-spin text-[10px]">⏳</span>
+            {{ isDeleting ? '处理中...' : '确认删除' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </Teleport>
 </template>
 
 <script setup>
-import { ref, onMounted } from "vue";
+import { ref, onMounted, nextTick } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import draggable from "vuedraggable";
+import { draggingMeme } from "../stores/dragStore";
 
 const props = defineProps(["collapsed", "currentCategoryId"]);
 const emit = defineEmits(["update:currentCategoryId", "refresh-memes"]);
 
+const activeMenuId = ref(null);
 const categories = ref([]);
+const currentCat = ref(null);
+const editName = ref("");
+const renameInput = ref(null);
+
+const showDeleteModal = ref(false);
+const isDeleting = ref(false);
+const hoverCatId = ref(null);
+const menuStyle = ref({});
+const menuHover = ref(false);
+
+defineOptions({ inheritAttrs: false });
 
 const refreshCat = async () => {
   try {
     const res = await invoke("get_categories");
-
     categories.value = res.map((cat) => ({
       ...cat,
-      _dropZone: [],
+      isEditing: false,
     }));
   } catch (e) {
     console.error("加载分类失败:", e);
   }
 };
 
-onMounted(async () => {
-  refreshCat();
-});
+const onDragEnd = async () => {
+  const ids = categories.value.map(c => c.id);
+  try {
+    await invoke("update_category_order", { ids });
+  } catch (err) {
+    console.error("排序同步失败:", err);
+    refreshCat();
+  }
+};
 
-const handleMemeAddedToCategory = async (evt, catId) => {
-  const memeData =
-    evt.item?._underlying_vm_ || evt.item?.__draggable_context?.element;
+const renameCategory = async () => {
+  if (!currentCat.value) return;
 
-  if (!memeData || !memeData.id) return;
+  const target = categories.value.find((c) => c.id === currentCat.value.id);
+  if (target) {
+    editName.value = target.name;
+    target.isEditing = true;
+    closeMenu();
+    
+    await nextTick();
+    renameInput.value?.focus();
+    renameInput.value?.select();
+  }
+};
 
-  console.log(`拖入分类: meme=${memeData.id}, target=${catId}`);
+const handleRename = async (cat) => {
+  const trimmedName = editName.value.trim();
+  if (!trimmedName || trimmedName === cat.name) {
+    cat.isEditing = false;
+    return;
+  }
+
+  try {
+    await invoke("rename_category", {
+      catId: cat.id,
+      newName: trimmedName,
+    });
+    cat.name = trimmedName;
+    cat.isEditing = false;
+  } catch (e) {
+    console.error("重命名失败", e);
+    cat.isEditing = false;
+  }
+};
+
+const openDeleteModal = () => {
+  if (currentCat.value?.id === 1) {
+    alert("默认分类不可删除");
+    closeMenu();
+    return;
+  }
+  showDeleteModal.value = true;
+  closeMenu();
+};
+
+const confirmDelete = async () => {
+  if (!currentCat.value || isDeleting.value) return;
+  isDeleting.value = true;
+  try {
+    await invoke("delete_category", { catId: currentCat.value.id });
+    if (props.currentCategoryId === currentCat.value.id) {
+      emit("update:currentCategoryId", 1);
+    }
+    await refreshCat();
+    emit("refresh-memes");
+    showDeleteModal.value = false;
+  } catch (e) {
+    console.error("删除失败:", e);
+  } finally {
+    isDeleting.value = false;
+  }
+};
+
+const createCategory = async () => {
+  try {
+    const newId = await invoke("create_category", {
+      name: "新分组",
+    });
+    await refreshCat();
+
+    const newCat = categories.value.find((c) => c.id === newId);
+    if (newCat) {
+      currentCat.value = newCat;
+      renameCategory();
+    }
+  } catch (err) {
+    console.error("新建分组失败:", err);
+  }
+};
+
+const getItemClass = (categoryId, catId) => {
+  const isEditing = categories.value.find((c) => c.id === catId)?.isEditing;
+  return [
+    "relative group flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-all duration-200",
+    categoryId === catId && !isEditing
+      ? "bg-blue-600 text-white shadow-md shadow-blue-200"
+      : "text-gray-600 hover:bg-gray-100",
+    hoverCatId.value === catId ? "bg-blue-100" : "",
+    isEditing ? "bg-gray-50 ring-1 ring-blue-300" : "",
+  ];
+};
+
+const toggleMenu = (id, event) => {
+  if (activeMenuId.value === id) {
+    closeMenu();
+    return;
+  }
+
+  const rect = event.currentTarget.getBoundingClientRect();
+
+  menuStyle.value = {
+    top: rect.bottom + 4 + "px",
+    left: rect.right - 120 + "px",
+  };
+
+  activeMenuId.value = id;
+  currentCat.value = categories.value.find((c) => c.id === id);
+};
+
+const closeMenu = () => {
+  activeMenuId.value = null;
+  currentCat.value = null;
+};
+
+const onEnter = (catId) => {
+  if (draggingMeme.value) {
+    hoverCatId.value = catId;
+  }
+};
+
+const onLeave = () => {
+  hoverCatId.value = null;
+};
+
+const onDrop = async (catId) => {
+  const meme = draggingMeme.value;
+  if (!meme) return;
+
+  console.log("拖入分类:", catId, meme);
+
+  draggingMeme.value = null;
+  hoverCatId.value = null;
 
   try {
     await invoke("move_memes_to_category", {
-      memeIds: [memeData.id],
+      memeIds: [meme.id],
       targetCatId: catId,
     });
 
@@ -121,17 +308,10 @@ const handleMemeAddedToCategory = async (evt, catId) => {
   }
 };
 
-const createCategory = async () => {
-  try {
-    await invoke("create_category", {
-      name: "未命名分组",
-    });
-
-    refreshCat();
-  } catch (err) {
-    console.error("新建分组并移动失败:", err);
-  }
-};
+onMounted(async () => {
+  refreshCat();
+  window.addEventListener("click", (e) => { if (!menuHover.value) closeMenu(); });
+});
 </script>
 
 <style scoped>
@@ -145,5 +325,13 @@ const createCategory = async () => {
 }
 .custom-scrollbar:hover::-webkit-scrollbar-thumb {
   background: rgba(0, 0, 0, 0.1);
+}
+.drag-ghost {
+  opacity: 0.5;
+  background: #ebf5ff !important;
+  border: 2px dashed #60a5fa !important;
+}
+.group:hover {
+  transform: translateX(2px);
 }
 </style>
