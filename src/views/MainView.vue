@@ -19,6 +19,7 @@
       class="flex flex-wrap gap-6"
       ghost-class="ghost-item"
       :group="{ name: 'memes', pull: 'clone', put: false }"
+      @start="onDragStart"
       @end="handleSortEnd"
       :force-fallback="true"
       :filter="'.no-drag'"
@@ -26,7 +27,7 @@
     >
       <template #item="{ element }">
         <div
-          class="w-[120px] aspect-square bg-white rounded-2xl shadow-sm cursor-grab"
+          class="w-30 aspect-square bg-white rounded-2xl shadow-sm cursor-grab"
         >
           <MemeCard :meme="element" @copy-success="handleCopySuccess" />
         </div>
@@ -51,6 +52,7 @@ import { invoke, convertFileSrc } from "@tauri-apps/api/core";
 import MemeCard from "../components/MemeCard.vue";
 import draggable from "vuedraggable";
 import { message } from "@tauri-apps/plugin-dialog";
+import { draggingMeme } from "../stores/dragStore"
 
 const props = defineProps(["categoryId"]);
 const memes = ref([]);
@@ -59,19 +61,23 @@ const toast = ref({
   message: "",
 });
 
-const handleSortEnd = async (evt) => {
-  if (evt.to !== evt.from) {
-    console.log("图片已被拖向侧边栏");
-    return;
-  }
+const onDragStart = async (evt) => {
+  draggingMeme.value = evt.item.__draggable_context.element;
+}
 
-  console.log("正在保存排序");
-  const sortedIds = memes.value.map((m) => m.id);
-  try {
-    await invoke("update_memes_order", { ids: sortedIds });
-  } catch (err) {
-    console.error("更新排序失败:", err);
-    loadMemes();
+const handleSortEnd = async (evt) => {
+  draggingMeme.value = null
+
+  if (evt.to === evt.from) {
+    console.log("正在保存排序")
+    const sortedIds = memes.value.map((m) => m.id)
+
+    try {
+      await invoke("update_memes_order", { ids: sortedIds })
+    } catch (err) {
+      console.error("更新排序失败:", err)
+      loadMemes()
+    }
   }
 };
 

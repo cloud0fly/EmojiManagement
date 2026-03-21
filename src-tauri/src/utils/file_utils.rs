@@ -1,31 +1,47 @@
 use std::fs;
+use std::io::Read;
 use std::path::{Path, PathBuf};
-use uuid::Uuid;
-use crate::utils::image_utils::is_supported_image;
+use tauri::{AppHandle, Manager};
+use tauri_plugin_store::StoreExt;
+use log::{error, warn};
 
-pub fn move_to_original(temp: &Path, dest: &Path) -> Result<(), String> {
-    // 跨磁盘安全
-    std::fs::copy(temp, dest).map_err(|e| e.to_string())?;
-    std::fs::remove_file(temp).map_err(|e| e.to_string())?;
-    Ok(())
+// 计算md5
+pub fn calculate_md5_stream(path: &Path) -> Result<String, String> {
+    let mut file = fs::File::open(path).map_err(|e| e.to_string())?;
+    let mut context = md5::Context::new();
+    let mut buffer = [0; 1024];
+    loop {
+        let n = file.read(&mut buffer).map_err(|e| e.to_string())?;
+        if n == 0 { break; }
+        context.consume(&buffer[..n]);
+    }
+    Ok(format!("{:x}", context.finalize()))
 }
 
-pub fn calculate_md5(path: &Path) -> Result<String, String> {
-    let content =
-        fs::read(path).map_err(|e| format!("读取文件失败 ({}): {}", path.display(), e))?;
-    let digest = md5::compute(content);
-    Ok(format!("{:x}", digest)) // 转为十六进制字符串
-}
-
-pub fn scan_recursive(path: &Path, result: &mut Vec<PathBuf>) {
-    if let Ok(entries) = fs::read_dir(path) {
-        for entry in entries.flatten() {
-            let p = entry.path();
-            if p.is_dir() {
-                scan_recursive(&p, result);
-            } else if is_supported_image(&p) {
-                result.push(p);
+// 获取配置中的存储路径
+pub fn get_meme_path(app: &AppHandle) -> PathBuf {
+    let stores = app.store("settings.json");
+    
+    match stores {
+        Ok(store) => {
+            if let Some(value) = store.get("memePath") {
+                if let Some(path_str) = value.as_str() {
+                    if !path_str.is_empty() {
+                        let custom_path = PathBuf::from(path_str);
+                        return custom_path;
+                    }
+                }
             }
-        }
+   
+            let default_path = app.path().app_data_dir().expect("获取 AppData 目录失败").join("memes");
+            warn!("配置中 memePath 为空，将使用默认路径: {:?}", default_path);
+            default_path
+        },
+
+        Err(e) => {
+            let default_path = app.path().app_data_dir().expect("获取 AppData 目录失败").join("memes");
+            error!("加载 settings.json 失败: {}, 回退至默认路径: {:?}", e, default_path);
+            default_path
+        },
     }
 }

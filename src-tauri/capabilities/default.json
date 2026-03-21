@@ -8,6 +8,8 @@
   "permissions": [
     "core:default",
     "opener:default",
+    "dialog:allow-confirm",
+    "dialog:default",
     "dialog:allow-open",
     "dialog:allow-message",
     "fs:allow-read-dir",
@@ -17,6 +19,8 @@
     "core:path:default",
     "core:event:default",
     "core:webview:allow-set-webview-size",
-    "core:window:allow-set-always-on-top"
+    "core:window:allow-set-always-on-top",
+    "store:allow-load",
+    "store:default"
   ]
 }

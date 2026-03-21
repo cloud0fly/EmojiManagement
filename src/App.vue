@@ -12,6 +12,7 @@
         :is-sidebar-collapsed="isCollapsed"
         @import-success="handleImportSuccess"
         @toggle-sidebar="isCollapsed = !isCollapsed"
+        @open-settings="showSettings = true"
       />
       <main class="flex-1 overflow-y-auto bg-gray-50/50 relative">
         <transition name="fade" mode="out-in">
@@ -20,6 +21,7 @@
       </main>
     </div>
   </div>
+  <SettingsDialog v-model="showSettings" />
 </template>
 
 <script setup>
@@ -27,10 +29,12 @@ import { ref } from "vue";
 import SideBar from "./components/SideBar.vue";
 import TopBar from "./components/TopBar.vue";
 import MainView from "./views/MainView.vue";
+import SettingsDialog from "./components/SettingsDialog.vue";
 
 const isCollapsed = ref(false);
 const activeCategoryId = ref(1);
 const refreshKey = ref(0);
+const showSettings = ref(false);
 
 const handleImportSuccess = (result) => {
   console.log("导入成功: ", result);
@@ -40,7 +44,6 @@ const handleImportSuccess = (result) => {
 const triggerRefresh = () => {
   refreshKey.value++;
 };
-
 </script>
 
 <style scoped>

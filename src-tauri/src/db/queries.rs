@@ -1,5 +1,6 @@
 // src-tauri/src/db/queries.rs
 
+// 初始化
 pub const INIT_CATEGORIES_TABLE: &str = "
     CREATE TABLE IF NOT EXISTS categories (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -7,7 +8,6 @@ pub const INIT_CATEGORIES_TABLE: &str = "
         order_index INTEGER DEFAULT 0
     );
 ";
-
 pub const INIT_MEMES_TABLE: &str = "
     CREATE TABLE IF NOT EXISTS memes (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -20,20 +20,23 @@ pub const INIT_MEMES_TABLE: &str = "
     );
 ";
 
+// 分类用
 pub const INSERT_DEFAULT_CATEGORY: &str = "
-    INSERT OR IGNORE INTO categories (id, name) VALUES (1, 'default')
-";
-
-pub const GET_ALL_CATEGORIES: &str = "
-    SELECT id, name, order_index FROM categories ORDER BY order_index ASC;
-";
-
-pub const UPDATE_MEME_CATEGORY: &str = "
-    UPDATE memes SET category_id = ? WHERE id = ?;
+    INSERT OR IGNORE INTO categories (id, name, order_index) 
+    VALUES (1, '默认', -1)
 ";
 
 pub const CREATE_CATEGORY: &str = "INSERT INTO categories (name, order_index) VALUES (?, 0)";
 
+pub const GET_ALL_CATEGORIES: &str = "SELECT id, name, order_index FROM categories ORDER BY order_index ASC";
+
+pub const UPDATE_CATEGORY_ORDER: &str = "UPDATE categories SET order_index = ? WHERE id = ?";
+
+pub const DELETE_CATEGORY: &str = "DELETE FROM categories WHERE id = ?";
+
+pub const UPDATE_CATEGORY_NAME: &str = "UPDATE categories SET name = ? WHERE id = ?";
+
+// 图片用
 pub const INSERT_MEME_IF_NOT_EXISTS: &str = "
     INSERT INTO memes (file_path, category_id, is_gif, md5)
     SELECT ?1, ?2, ?3, ?4
@@ -42,15 +45,17 @@ pub const INSERT_MEME_IF_NOT_EXISTS: &str = "
     );
 ";
 
-pub const GET_MEMES_BY_CAT: &str = "
+pub const GET_MEMES_BY_CATEGORY: &str = "
     SELECT id, file_path, is_gif, category_id, order_index 
     FROM memes 
     WHERE category_id = ? 
     ORDER BY order_index ASC
 ";
 
+pub const UPDATE_MEME_CATEGORY: &str = "UPDATE memes SET category_id = ? WHERE id = ?";
+
 pub const UPDATE_MEME_ORDER: &str = "UPDATE memes SET order_index = ? WHERE id = ?";
 
-pub const UPDATE_CATEGORY_ORDER: &str = "UPDATE categories SET order_index = ? WHERE id = ?";
+pub const MIGRATE_MEMES: &str = "UPDATE memes SET category_id = ?1 WHERE category_id = ?2";
 
-pub const DELETE_CATEGORY: &str = "DELETE FROM categories WHERE id = ?";
+// pub const DELETE_MEME: &str = "DELETE FROM memes WHERE id = ?";

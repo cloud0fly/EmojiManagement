@@ -26,6 +26,7 @@ pnpm-debug.log*
 # 忽略 Tauri 编译生成的各种安装包 (msi, nsis, deb等)
 /src-tauri/gen
 /src-tauri/bundle
+/src-tauri/data
 
 # 忽略 Rust 锁文件（如果是个人开发且不锁定版本可忽略，通常建议保留 Cargo.lock）
 # src-tauri/Cargo.lock
