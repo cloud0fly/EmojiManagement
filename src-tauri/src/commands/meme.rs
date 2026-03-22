@@ -6,13 +6,77 @@ use crate::utils::file_utils::*;
 use crate::utils::image_utils::*;
 use crate::DbState;
 use log::{debug, error, info, warn};
-use tauri::Manager;
 use std::fs;
 use std::path::{Path, PathBuf};
 use tauri::AppHandle;
+use tauri::Manager;
 use tauri::State;
 
 // 导入图片
+#[tauri::command]
+pub async fn import_single_image(
+    app: AppHandle,
+    state: State<'_, DbState>,
+    file_path: String,
+    target_cat_id: i32,
+) -> Result<bool, String> {
+    info!(
+        "开始导入图片任务，图片路径: {}, 目标分类: {}",
+        file_path, target_cat_id
+    );
+
+    let base_path = get_meme_path(&app);
+    let relative_folder = "original";
+    let original_dir = base_path.join(relative_folder);
+
+    if !original_dir.exists() {
+        fs::create_dir_all(&original_dir).map_err(|e| e.to_string())?;
+    }
+
+    // 开启事务
+    let mut conn = state.0.lock().unwrap();
+    let tx = conn.transaction().map_err(|e| e.to_string())?;
+
+    let img_path = PathBuf::from(&file_path);
+
+    if !is_supported_image(&img_path) {
+        return Ok(false);
+    }
+
+    let (is_match, real_ext) = check_image_type(&img_path);
+    if !is_match {
+        warn!("格式不匹配: {:?}", img_path);
+    }
+
+    let md5_hash = calculate_md5_stream(&img_path)?;
+    let is_gif = real_ext == "gif";
+
+    let file_name = format!("{}.{}", md5_hash, real_ext);
+    let final_path = original_dir.join(&file_name);
+    let relative_path = format!("{}/{}", relative_folder, file_name);
+
+    {
+        let mut stmt = tx.prepare(INSERT_MEME_IF_NOT_EXISTS).map_err(|e| e.to_string())?;
+
+        let changes = stmt.execute(rusqlite::params![
+            relative_path,
+            target_cat_id,
+            is_gif,
+            md5_hash
+        ]).map_err(|e| e.to_string())?;
+
+        if changes > 0 {
+            if !final_path.exists() {
+                fs::copy(&img_path, &final_path).map_err(|e| e.to_string())?;
+            }
+        }
+    }
+
+    tx.commit().map_err(|e| e.to_string())?;
+
+    Ok(true)
+}
+
 #[tauri::command]
 pub async fn import_image_from_folder(
     app: AppHandle,
@@ -21,7 +85,7 @@ pub async fn import_image_from_folder(
     target_cat_id: i32,
 ) -> Result<ImportResult, String> {
     info!(
-        "开始导入图片任务，源路径: {}, 目标分类: {}",
+        "开始导入图片任务，路径: {}, 目标分类: {}",
         folder_path, target_cat_id
     );
 
@@ -136,7 +200,9 @@ pub async fn get_memes_by_category(
 ) -> Result<Vec<MemeItem>, String> {
     let conn = state.0.lock().unwrap();
     let base_path = get_meme_path(&app);
-    let mut stmt = conn.prepare(GET_MEMES_BY_CATEGORY).map_err(|e| e.to_string())?;
+    let mut stmt = conn
+        .prepare(GET_MEMES_BY_CATEGORY)
+        .map_err(|e| e.to_string())?;
 
     let meme_iter = stmt
         .query_map(rusqlite::params![cat_id], |row| {
@@ -245,8 +311,11 @@ pub fn open_log_dir(app: tauri::AppHandle) {
     if log_dir.exists() {
         // 使用系统的资源管理器打开
         #[cfg(target_os = "windows")]
-        std::process::Command::new("explorer").arg(log_dir).spawn().ok();
-        
+        std::process::Command::new("explorer")
+            .arg(log_dir)
+            .spawn()
+            .ok();
+
         #[cfg(target_os = "macos")]
         std::process::Command::new("open").arg(log_dir).spawn().ok();
     }

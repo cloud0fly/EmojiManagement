@@ -125,7 +125,7 @@
 
   <Teleport to="body">
     <div
-      v-if="showDeleteModal"
+      v-if="showConfirmDelete"
       class="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-10000"
     >
       <div
@@ -138,7 +138,7 @@
         </p>
         <div class="flex justify-end gap-3 mt-6">
           <button
-            @click="showDeleteModal = false"
+            @click="showConfirmDelete = false"
             class="px-4 py-2 text-sm font-medium text-gray-500 hover:bg-gray-100 rounded-xl"
           >
             取消
@@ -165,33 +165,15 @@ import { draggingMeme } from "../stores/dragStore";
 
 const props = defineProps(["collapsed", "currentCategoryId"]);
 const emit = defineEmits(["update:currentCategoryId", "refresh-memes"]);
-
-const activeMenuId = ref(null);
-const categories = ref([]);
-const currentCat = ref(null);
-const editName = ref("");
-const renameInput = ref(null);
-
-const showDeleteModal = ref(false);
-const isDeleting = ref(false);
-const hoverCatId = ref(null);
+defineOptions({ inheritAttrs: false });
+ 
 const menuStyle = ref({});
 const menuHover = ref(false);
-const isSorting = ref(false);
-const isMouseDown = ref(false);
 
-defineOptions({ inheritAttrs: false });
+const currentCat = ref(null);// 当前分类
 
-const handleDrop = (catId) => {
-  if (isSorting.value) return;
-
-  if (draggingMeme.value) {
-    onDrop(catId);
-  } else {
-    hoverCatId.value = null;
-  }
-};
-
+// 获取所有分类
+const categories = ref([]);  // 分类列表
 const refreshCat = async () => {
   try {
     const res = await invoke("get_categories");
@@ -205,30 +187,97 @@ const refreshCat = async () => {
   }
 };
 
-const onDragEnd = async () => {
-  console.log("开始拖拽排序");
-  isSorting.value = false;
-  const ids = categories.value.map((c) => c.id);
-  try {
-    await invoke("update_category_order", { ids });
-  } catch (err) {
-    console.error("排序同步失败:", err);
-    refreshCat();
+
+// 拖入处理
+const hoverCatId = ref(null); // 当前分类(拖入用)
+const handleDrop = (catId) => {
+  if (draggingMeme.value) {
+    onDrop(catId);
+  } else {
+    hoverCatId.value = null;
   }
 };
+const onDrop = async (catId) => {
+  const meme = draggingMeme.value;
+  if (!meme) return;
 
+  console.log("拖入分类:", catId, meme);
+  const targetMemeId = meme.id;
+  draggingMeme.value = null;
+  hoverCatId.value = null;
+
+  try {
+    await invoke("move_memes_to_category", {
+      memeIds: [targetMemeId],
+      targetCatId: catId,
+    });
+
+    emit("refresh-memes");
+  } catch (err) {
+    console.error("移动失败:", err);
+    emit("refresh-memes");
+  }
+};
+const onEnter = (catId) => {
+  if (draggingMeme.value) {
+    hoverCatId.value = catId;
+  }
+};
+const onLeave = () => {
+  hoverCatId.value = null;
+};
+
+
+// 打开菜单
+const activeMenuId = ref(null); // 当前激活的菜单
+// const renamingCatId = ref(null);
+const toggleMenu = (id, event) => {
+  if (activeMenuId.value === id) {
+    closeMenu();
+    return;
+  }
+
+  const rect = event.currentTarget.getBoundingClientRect();
+
+  menuStyle.value = {
+    top: rect.bottom + 4 + "px",
+    left: rect.right - 120 + "px",
+  };
+
+  activeMenuId.value = id;
+  currentCat.value = categories.value.find((c) => c.id === id);
+};
+
+// 关闭菜单
+const closeMenu = () => {
+  activeMenuId.value = null;
+  currentCat.value = null;
+};
+
+
+// 编辑状态
+const editName = ref("");
+const enterEditMode = async (cat) => {
+  currentCat.value = cat;
+  editName.value = cat.name;
+
+  cat.isEditing = true;
+
+  await nextTick();
+  renameInput.value?.focus();
+  renameInput.value?.select();
+};
+
+
+// 重命名
+const renameInput = ref(null);
 const renameCategory = async () => {
   if (!currentCat.value) return;
 
-  const target = categories.value.find((c) => c.id === currentCat.value.id);
-  if (target) {
-    editName.value = target.name;
-    target.isEditing = true;
-    closeMenu();
-
-    await nextTick();
-    renameInput.value?.focus();
-    renameInput.value?.select();
+  const renamingCat = currentCat.value;
+  closeMenu();
+  if (renamingCat) {
+    enterEditMode(renamingCat);
   }
 };
 
@@ -252,27 +301,39 @@ const handleRename = async (cat) => {
   }
 };
 
+
+// 删除
+const showConfirmDelete = ref(false);
+const isDeleting = ref(false);
+const deletingCat = ref(null);
+
 const openDeleteModal = () => {
+  deletingCat.value = null;
+
   if (currentCat.value?.id === 1) {
     alert("默认分类不可删除");
     closeMenu();
     return;
   }
-  showDeleteModal.value = true;
+
+  showConfirmDelete.value = true;
+  deletingCat.value = currentCat.value;
   closeMenu();
 };
 
 const confirmDelete = async () => {
-  if (!currentCat.value || isDeleting.value) return;
+  if (!deletingCat.value || isDeleting.value) return;
+
   isDeleting.value = true;
+
   try {
-    await invoke("delete_category", { catId: currentCat.value.id });
-    if (props.currentCategoryId === currentCat.value.id) {
+    await invoke("delete_category", { catId: deletingCat.value.id });
+    if (props.currentCategoryId === deletingCat.value.id) {
       emit("update:currentCategoryId", 1);
     }
     await refreshCat();
     emit("refresh-memes");
-    showDeleteModal.value = false;
+    showConfirmDelete.value = false;
   } catch (e) {
     console.error("删除失败:", e);
   } finally {
@@ -280,6 +341,8 @@ const confirmDelete = async () => {
   }
 };
 
+
+// 新建
 const createCategory = async () => {
   try {
     const newId = await invoke("create_category", {
@@ -289,13 +352,13 @@ const createCategory = async () => {
 
     const newCat = categories.value.find((c) => c.id === newId);
     if (newCat) {
-      currentCat.value = newCat;
-      renameCategory();
+      await enterEditMode(newCat);
     }
   } catch (err) {
     console.error("新建分组失败:", err);
   }
 };
+
 
 const getItemClass = (categoryId, catId) => {
   const isEditing = categories.value.find((c) => c.id === catId)?.isEditing;
@@ -307,60 +370,6 @@ const getItemClass = (categoryId, catId) => {
     hoverCatId.value === catId ? "ring-2 ring-blue-400 bg-blue-50/50" : "",
     isEditing ? "bg-gray-50 ring-1 ring-blue-300" : "",
   ];
-};
-
-const toggleMenu = (id, event) => {
-  if (activeMenuId.value === id) {
-    closeMenu();
-    return;
-  }
-
-  const rect = event.currentTarget.getBoundingClientRect();
-
-  menuStyle.value = {
-    top: rect.bottom + 4 + "px",
-    left: rect.right - 120 + "px",
-  };
-
-  activeMenuId.value = id;
-  currentCat.value = categories.value.find((c) => c.id === id);
-};
-
-const closeMenu = () => {
-  activeMenuId.value = null;
-  currentCat.value = null;
-};
-
-const onEnter = (catId) => {
-  if (draggingMeme.value) {
-    hoverCatId.value = catId;
-  }
-};
-
-const onLeave = () => {
-  hoverCatId.value = null;
-};
-
-const onDrop = async (catId) => {
-  const meme = draggingMeme.value;
-  if (!meme) return;
-
-  console.log("拖入分类:", catId, meme);
-  const targetMemeId = meme.id;
-  draggingMeme.value = null;
-  hoverCatId.value = null;
-
-  try {
-    await invoke("move_memes_to_category", {
-      memeIds: [targetMemeId],
-      targetCatId: catId,
-    });
-
-    emit("refresh-memes");
-  } catch (err) {
-    console.error("移动失败:", err);
-    emit("refresh-memes");
-  }
 };
 
 onMounted(async () => {

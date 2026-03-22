@@ -1,5 +1,5 @@
 <template>
-  <div class="main-view p-6 h-full overflow-y-auto custom-scrollbar">
+  <div class="main-view p-6 h-full overflow-y-auto custom-scrollbar relative">
     <div
       v-if="memes.length === 0"
       class="flex flex-col items-center justify-center py-32 border-2 border-dashed border-gray-100 rounded-4xl bg-white/30 backdrop-blur-md shadow-sm transition-all"
@@ -47,6 +47,19 @@
         {{ toast.message }}
       </div>
     </transition>
+
+    <transition name="fade">
+      <div
+        v-if="isDraggingFile"
+        class="absolute inset-0 z-50 flex items-center justify-center pointer-events-none"
+      >
+        <div
+          class="px-8 py-4 rounded-2xl bg-white/80 backdrop-blur-md shadow-xl border border-blue-200 text-blue-600 font-semibold text-lg"
+        >
+          松手导入图片
+        </div>
+      </div>
+    </transition>
   </div>
 </template>
 
@@ -58,12 +71,44 @@ import MemeCard from "../components/MemeCard.vue";
 import draggable from "vuedraggable";
 import { message } from "@tauri-apps/plugin-dialog";
 import { draggingMeme } from "../stores/dragStore";
+import { listen } from "@tauri-apps/api/event";
 
 const props = defineProps(["categoryId"]);
 const memes = ref([]);
 const toast = ref({
   show: false,
   message: "",
+});
+
+const isDraggingFile = ref(false);
+
+onMounted(async () => {
+  await listen("tauri://drag-enter", () => {
+    isDraggingFile.value = true;
+  });
+
+  await listen("tauri://drag-leave", () => {
+    isDraggingFile.value = false;
+  });
+
+  await listen("tauri://drag-drop", async (event) => {
+    isDraggingFile.value = false;
+
+    const payload = event.payload;
+    const paths = Array.isArray(payload) ? payload : payload?.paths;
+    if (!paths || paths.length === 0) return;
+
+    console.log("拖入路径:", paths);
+
+    for (const path of paths) {
+      await invoke("import_single_image", {
+        filePath: path,
+        targetCatId: props.categoryId || 1,
+      });
+    }
+
+    await loadMemes();
+  });
 });
 
 const onDragStart = async (evt) => {
@@ -142,7 +187,13 @@ onMounted(loadMemes);
 }
 
 @keyframes slideUp {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 </style>

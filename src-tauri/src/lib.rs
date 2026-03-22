@@ -49,7 +49,7 @@ pub fn run() {
             let show = MenuItem::with_id(app, "show", "打开", true, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "退出", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&show, &quit])?;
-            let icon_bytes = include_bytes!("../icons/icon.ico");
+            let icon_bytes = include_bytes!("../icons/tray.ico");
             let icon = Image::from_bytes(icon_bytes)?;
 
             TrayIconBuilder::new()
@@ -99,6 +99,7 @@ pub fn run() {
         })
         // function
         .invoke_handler(tauri::generate_handler![
+            import_single_image,
             import_image_from_folder,
             get_categories,
             get_memes_by_category,
